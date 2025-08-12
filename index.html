@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jogo da Velha - IA Minimax</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: white;
+      }
+
+      .container {
+        text-align: center;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+      }
+
+      h1 {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .subtitle {
+        font-size: 1.2rem;
+        margin-bottom: 2rem;
+        opacity: 0.9;
+      }
+
+      .game-board {
+        display: grid;
+        grid-template-columns: repeat(3, 120px);
+        grid-template-rows: repeat(3, 120px);
+        gap: 8px;
+        justify-content: center;
+        margin: 2rem auto;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 15px;
+        border-radius: 15px;
+        box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .cell {
+        background: rgba(255, 255, 255, 0.9);
+        border: none;
+        border-radius: 12px;
+        font-size: 3rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        color: #333;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .cell:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 1);
+        transform: scale(1.05);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      .cell:disabled {
+        cursor: not-allowed;
+        opacity: 0.8;
+      }
+
+      .cell.x {
+        color: #e74c3c;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .cell.o {
+        color: #3498db;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .status {
+        font-size: 1.5rem;
+        margin: 1rem 0;
+        min-height: 2rem;
+        font-weight: bold;
+      }
+
+      .controls {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-top: 2rem;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 25px;
+        font-size: 1rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: rgba(255, 255, 255, 0.9);
+        color: #333;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .btn:hover {
+        background: white;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      .btn:active {
+        transform: translateY(0);
+      }
+
+      .stats {
+        margin-top: 2rem;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        text-align: center;
+      }
+
+      .stat-item {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 1rem;
+        border-radius: 10px;
+        backdrop-filter: blur(5px);
+      }
+
+      .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        display: block;
+      }
+
+      .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.8;
+      }
+
+      .thinking {
+        animation: pulse 1.5s ease-in-out infinite alternate;
+      }
+
+      @keyframes pulse {
+        from {
+          opacity: 0.7;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      .winner-animation {
+        animation: bounce 0.6s ease-in-out;
+      }
+
+      @keyframes bounce {
+        0%,
+        20%,
+        50%,
+        80%,
+        100% {
+          transform: translateY(0);
+        }
+        40% {
+          transform: translateY(-10px);
+        }
+        60% {
+          transform: translateY(-5px);
+        }
+      }
+
+      @media (max-width: 480px) {
+        .game-board {
+          grid-template-columns: repeat(3, 80px);
+          grid-template-rows: repeat(3, 80px);
+        }
+
+        .cell {
+          font-size: 2rem;
+        }
+
+        h1 {
+          font-size: 2rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🎮 Jogo da Velha</h1>
+      <p class="subtitle">Você (X) vs IA Inteligente (O)</p>
+
+      <div class="status" id="status">
+        Sua vez! Clique em uma casa para jogar.
+      </div>
+
+      <div class="game-board" id="board">
+        <button class="cell" data-index="0"></button>
+        <button class="cell" data-index="1"></button>
+        <button class="cell" data-index="2"></button>
+        <button class="cell" data-index="3"></button>
+        <button class="cell" data-index="4"></button>
+        <button class="cell" data-index="5"></button>
+        <button class="cell" data-index="6"></button>
+        <button class="cell" data-index="7"></button>
+        <button class="cell" data-index="8"></button>
+      </div>
+
+      <div class="controls">
+        <button class="btn" onclick="novoJogo()">🎯 Novo Jogo</button>
+        <button class="btn" onclick="alternarInicio()">
+          🔄 Quem Começa: <span id="starter">Você</span>
+        </button>
+      </div>
+
+      <div class="stats">
+        <div class="stat-item">
+          <span class="stat-number" id="playerWins">0</span>
+          <span class="stat-label">Suas Vitórias</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number" id="draws">0</span>
+          <span class="stat-label">Empates</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number" id="aiWins">0</span>
+          <span class="stat-label">Vitórias da IA</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      class JogoDaVelha {
+        constructor() {
+          this.tabuleiro = Array(9).fill(0);
+          this.jogadorHumano = 1;
+          this.ia = -1;
+          this.jogoAtivo = true;
+          this.playerStarts = true;
+          this.stats = {
+            playerWins: 0,
+            aiWins: 0,
+            draws: 0,
+          };
+          this.carregarEstatisticas();
+          this.inicializarJogo();
+        }
+
+        inicializarJogo() {
+          this.tabuleiro = Array(9).fill(0);
+          this.jogoAtivo = true;
+          this.atualizarInterface();
+
+          const cells = document.querySelectorAll('.cell');
+          cells.forEach((cell, index) => {
+            cell.onclick = () => this.jogadaHumano(index);
+            cell.disabled = false;
+            cell.textContent = '';
+            cell.className = 'cell';
+          });
+
+          if (!this.playerStarts) {
+            setTimeout(() => this.jogadaIA(), 500);
+            this.atualizarStatus('IA começou! Sua vez...');
+          } else {
+            this.atualizarStatus('Sua vez! Clique em uma casa para jogar.');
+          }
+        }
+
+        jogadaHumano(posicao) {
+          if (!this.jogoAtivo || this.tabuleiro[posicao] !== 0) return;
+
+          this.tabuleiro[posicao] = this.jogadorHumano;
+          this.atualizarCelula(posicao, 'X', 'x');
+
+          const resultado = this.verificarVencedor();
+          if (resultado !== null) {
+            this.finalizarJogo(resultado);
+            return;
+          }
+
+          this.atualizarStatus('IA pensando...');
+          document.getElementById('status').classList.add('thinking');
+
+          setTimeout(() => {
+            this.jogadaIA();
+            document.getElementById('status').classList.remove('thinking');
+          }, 800);
+        }
+
+        jogadaIA() {
+          if (!this.jogoAtivo) return;
+
+          const melhorJogada = this.melhorMovimento();
+          this.tabuleiro[melhorJogada] = this.ia;
+          this.atualizarCelula(melhorJogada, 'O', 'o');
+
+          const resultado = this.verificarVencedor();
+          if (resultado !== null) {
+            this.finalizarJogo(resultado);
+          } else {
+            this.atualizarStatus('Sua vez! Clique em uma casa para jogar.');
+          }
+        }
+
+        atualizarCelula(posicao, texto, classe) {
+          const cell = document.querySelector(`[data-index="${posicao}"]`);
+          cell.textContent = texto;
+          cell.classList.add(classe);
+          cell.disabled = true;
+
+          // Animação suave
+          cell.style.transform = 'scale(1.2)';
+          setTimeout(() => {
+            cell.style.transform = 'scale(1)';
+          }, 200);
+        }
+
+        verificarVencedor() {
+          const combinacoes = [
+            [0, 1, 2],
+            [3, 4, 5],
+            [6, 7, 8], // linhas
+            [0, 3, 6],
+            [1, 4, 7],
+            [2, 5, 8], // colunas
+            [0, 4, 8],
+            [2, 4, 6], // diagonais
+          ];
+
+          for (const [a, b, c] of combinacoes) {
+            if (
+              this.tabuleiro[a] !== 0 &&
+              this.tabuleiro[a] === this.tabuleiro[b] &&
+              this.tabuleiro[b] === this.tabuleiro[c]
+            ) {
+              return this.tabuleiro[a];
+            }
+          }
+
+          return this.tabuleiro.includes(0) ? null : 0;
+        }
+
+        finalizarJogo(resultado) {
+          this.jogoAtivo = false;
+
+          const cells = document.querySelectorAll('.cell');
+          cells.forEach((cell) => (cell.disabled = true));
+
+          let mensagem = '';
+          if (resultado === this.jogadorHumano) {
+            mensagem = '🎉 Parabéns! Você venceu!';
+            this.stats.playerWins++;
+            document.getElementById('status').classList.add('winner-animation');
+          } else if (resultado === this.ia) {
+            mensagem = '🤖 A IA venceu! Tente novamente.';
+            this.stats.aiWins++;
+          } else {
+            mensagem = '🤝 Empate! Bom jogo!';
+            this.stats.draws++;
+          }
+
+          this.atualizarStatus(mensagem);
+          this.atualizarEstatisticas();
+          this.salvarEstatisticas();
+        }
+
+        melhorMovimento() {
+          let melhorValor = -Infinity;
+          let melhorMovimento = 0;
+
+          // Primeira jogada estratégica
+          if (this.tabuleiro.every((cell) => cell === 0)) {
+            const estrategicos = [0, 2, 4, 6, 8];
+            return estrategicos[
+              Math.floor(Math.random() * estrategicos.length)
+            ];
+          }
+
+          for (let i = 0; i < 9; i++) {
+            if (this.tabuleiro[i] === 0) {
+              this.tabuleiro[i] = this.ia;
+              const valor = this.minimax(0, false, -Infinity, Infinity);
+              this.tabuleiro[i] = 0;
+
+              if (valor > melhorValor) {
+                melhorValor = valor;
+                melhorMovimento = i;
+              }
+            }
+          }
+
+          return melhorMovimento;
+        }
+
+        minimax(profundidade, maximizando, alfa, beta) {
+          const resultado = this.verificarVencedor();
+
+          if (resultado === this.ia) return 10 - profundidade;
+          if (resultado === this.jogadorHumano) return profundidade - 10;
+          if (resultado === 0) return 0;
+
+          if (maximizando) {
+            let melhorValor = -Infinity;
+            for (let i = 0; i < 9; i++) {
+              if (this.tabuleiro[i] === 0) {
+                this.tabuleiro[i] = this.ia;
+                const valor = this.minimax(profundidade + 1, false, alfa, beta);
+                this.tabuleiro[i] = 0;
+                melhorValor = Math.max(melhorValor, valor);
+                alfa = Math.max(alfa, valor);
+                if (beta <= alfa) break;
+              }
+            }
+            return melhorValor;
+          } else {
+            let melhorValor = Infinity;
+            for (let i = 0; i < 9; i++) {
+              if (this.tabuleiro[i] === 0) {
+                this.tabuleiro[i] = this.jogadorHumano;
+                const valor = this.minimax(profundidade + 1, true, alfa, beta);
+                this.tabuleiro[i] = 0;
+                melhorValor = Math.min(melhorValor, valor);
+                beta = Math.min(beta, valor);
+                if (beta <= alfa) break;
+              }
+            }
+            return melhorValor;
+          }
+        }
+
+        atualizarStatus(mensagem) {
+          document.getElementById('status').textContent = mensagem;
+        }
+
+        atualizarInterface() {
+          document.getElementById('starter').textContent = this.playerStarts
+            ? 'Você'
+            : 'IA';
+          document
+            .getElementById('status')
+            .classList.remove('winner-animation');
+        }
+
+        atualizarEstatisticas() {
+          document.getElementById('playerWins').textContent =
+            this.stats.playerWins;
+          document.getElementById('aiWins').textContent = this.stats.aiWins;
+          document.getElementById('draws').textContent = this.stats.draws;
+        }
+
+        salvarEstatisticas() {
+          // Usar variável JavaScript em vez de localStorage
+          window.gameStats = this.stats;
+        }
+
+        carregarEstatisticas() {
+          if (window.gameStats) {
+            this.stats = { ...window.gameStats };
+            this.atualizarEstatisticas();
+          }
+        }
+
+        alternarInicio() {
+          this.playerStarts = !this.playerStarts;
+          this.atualizarInterface();
+        }
+      }
+
+      let jogo = new JogoDaVelha();
+
+      function novoJogo() {
+        jogo.inicializarJogo();
+      }
+
+      function alternarInicio() {
+        jogo.alternarInicio();
+        jogo.inicializarJogo();
+      }
+    </script>
+  </body>
+</html>
